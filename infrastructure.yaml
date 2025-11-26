@@ -1,0 +1,38 @@
+name: infrastructure
+
+trigger: none  # manual or PR-based
+
+permissions:
+  groups:
+    include:
+      - "INFRA-TEAM"   # Only this group can run
+
+stages:
+- stage: TerraformInfra
+  displayName: "Deploy Infrastructure"
+  jobs:
+  - job: Terraform
+    pool:
+      vmImage: "ubuntu-latest"
+
+    steps:
+    - checkout: self
+
+    # Authenticate using OIDC to Azure
+    - task: AzureCLI@2
+      inputs:
+        azureSubscription: "<Your-OIDC-Connection>"
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          echo "OIDC Auth successful"
+
+    - script: |
+        terraform init -backend-config="key=infrastructure.tfstate"
+        terraform validate
+        terraform plan -out infra.tfplan
+      workingDirectory: terraform/infra
+
+    - script: |
+        terraform apply -auto-approve infra.tfplan
+      workingDirectory: terraform/infra

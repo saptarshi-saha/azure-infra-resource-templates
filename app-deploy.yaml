@@ -1,0 +1,74 @@
+name: app-deploy
+
+trigger:
+  branches:
+    include:
+      - main
+
+permissions:
+  groups:
+    include:
+      - "APP-DEPLOYERS"
+
+variables:
+  artifactName: "drop"
+
+stages:
+- stage: Build
+  displayName: "Build and Package"
+  jobs:
+  - job: BuildJob
+    pool:
+      vmImage: "ubuntu-latest"
+    steps:
+    - checkout: self
+    - script: npm install
+    - script: npm run build
+
+    - task: ArchiveFiles@2
+      inputs:
+        rootFolderOrFile: "$(Build.SourcesDirectory)"
+        archiveType: zip
+        archiveFile: "$(Build.ArtifactStagingDirectory)/app.zip"
+
+    - task: PublishBuildArtifacts@1
+      inputs:
+        PathtoPublish: "$(Build.ArtifactStagingDirectory)"
+        ArtifactName: $(artifactName)
+
+- stage: Deploy
+  dependsOn: Build
+  jobs:
+  - deployment: DeployJob
+    environment: "nonprod"
+    pool:
+      vmImage: "ubuntu-latest"
+
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - download: current
+            artifact: $(artifactName)
+
+          - task: AzureCLI@2
+            inputs:
+              azureSubscription: "<Your-OIDC-Connection>"
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                echo "Setting App Settings from Key Vault"
+                az webapp config appsettings set \
+                  --name nonprod-app \
+                  --resource-group nonprod-rg \
+                  --settings \
+                    "MYSQL_HOST=@Microsoft.KeyVault(SecretUri=$(mysql-host-url))" \
+                    "MYSQL_USER=@Microsoft.KeyVault(SecretUri=$(mysql-username-url))" \
+                    "MYSQL_PASSWORD=@Microsoft.KeyVault(SecretUri=$(mysql-password-url))"
+
+          - task: AzureWebApp@1
+            inputs:
+              azureSubscription: "<Your-OIDC-Connection>"
+              appType: webAppLinux
+              appName: "nonprod-app"
+              package: "$(Pipeline.Workspace)/drop/app.zip"

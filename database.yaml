@@ -1,0 +1,36 @@
+name: database
+
+trigger: none
+
+permissions:
+  groups:
+    include:
+      - "DBA-TEAM"
+
+stages:
+- stage: TerraformDB
+  displayName: "Provision MySQL & Push Secrets"
+  jobs:
+  - job: Terraform
+    pool:
+      vmImage: "ubuntu-latest"
+
+    steps:
+    - checkout: self
+
+    - task: AzureCLI@2
+      inputs:
+        azureSubscription: "<Your-OIDC-Connection>"
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          echo "OIDC Authentication Successful"
+
+    - script: |
+        terraform init -backend-config="key=database.tfstate"
+        terraform plan -out db.tfplan
+      workingDirectory: terraform/db
+
+    - script: |
+        terraform apply -auto-approve db.tfplan
+      workingDirectory: terraform/db

@@ -1,0 +1,81 @@
+resource "azurerm_frontdoor_standard" "fd" {
+  name                = var.frontdoor_name
+  resource_group_name = var.resource_group_name
+  location            = var.location
+
+  frontend_endpoint {
+    name                 = var.frontend_endpoint_name
+    host_name            = var.frontend_host
+    session_affinity_enabled = false
+  }
+
+  backend_pool {
+    name = "app-backend-pool"
+
+    backend {
+      host_header = var.backend_host
+      address     = var.backend_host
+      http_port   = 80
+      https_port  = 443
+      priority    = 1
+      weight      = 50
+    }
+
+    load_balancing_settings {
+      name = "lb-settings"
+      sample_size        = 4
+      successful_samples_required = 2
+      additional_latency_milliseconds = 0
+    }
+
+    health_probe_settings {
+      name                = "probe-settings"
+      probe_interval_in_seconds = 30
+      probe_path          = "/"
+      protocol            = "Https"
+    }
+  }
+
+  routing_rule {
+    name               = "default-routing-rule"
+    accepted_protocols = ["Https", "Http"]
+    patterns_to_match  = ["/*"]
+    frontend_endpoints = [var.frontend_endpoint_name]
+    forwarding_configuration {
+      backend_pool_name = "app-backend-pool"
+      cache_enabled     = false
+    }
+  }
+
+  tags = var.tags
+}
+
+resource "azurerm_frontdoor_firewall_policy" "waf" {
+  name                = var.waf_name
+  resource_group_name = var.resource_group_name
+  location            = var.location
+
+  custom_rule {
+    name     = "block-bad-requests"
+    priority = 1
+    rule_type = "MatchRule"
+    action   = "Block"
+    match_condition {
+      match_variables {
+        variable_name = "RequestHeaderNames"
+      }
+      operator           = "Contains"
+      match_values       = ["bad-header"]
+      transforms         = ["Lowercase"]
+    }
+  }
+
+  managed_rule {
+    managed_rule_set {
+      type    = "DefaultRuleSet"
+      version = "1.0"
+    }
+  }
+
+  tags = var.tags
+}
