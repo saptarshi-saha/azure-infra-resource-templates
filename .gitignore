@@ -25,6 +25,9 @@ terraform.rc
 *.swp
 *.swo
 
+# Locck files
+.terraform.lock.hcl
+
 # OS generated files
 .DS_Store
 Thumbs.db
