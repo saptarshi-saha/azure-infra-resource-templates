@@ -1,10 +1,10 @@
-# End‑to‑End Guide: Provisioning Snipe‑IT on Azure Using Terraform + Azure DevOps
+# End‑to‑End Guide: Provisioning on Azure Using Terraform + Azure DevOps
 
 This document walks you from **zero to deployment** using:
 
 * Azure Terraform IaC (VNet, App Service, MySQL, Key Vault)
 * Azure DevOps Pipelines: **Infra → DB → App**
-* App build process (Composer + NPM)
+* App build process (Composer + NPM) -- Not Currently Implemented
 * Secure DB credentials in **Azure Key Vault** with App Service Key Vault references
 
 ---
